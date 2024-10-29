@@ -13,30 +13,31 @@ from ...configs import CONFIDENT_THRESHOLD, UPLOAD_FOLDER
 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;0"
 
 print("[INFO] loading liveness detector...")
-model = load_model(os.path.sep.join([os.getcwd(), "app", "AI", "real_fake", 
-                                     "model", "liveness.model"]))
-label_path = os.path.sep.join([os.getcwd(), "app", "AI", "real_fake", 
-                                     "model", "le.pickle"])
+model = load_model(
+    os.path.sep.join([os.getcwd(), "app", "AI", "real_fake", "model", "liveness.model"])
+)
+label_path = os.path.sep.join(
+    [os.getcwd(), "app", "AI", "real_fake", "model", "le.pickle"]
+)
 try:
     le = pickle.loads(open(label_path, "rb").read())
 except:
-	le = pickle.loads(open(label_path, "rb").read().replace(b'label', b'_label'))
- 
+    le = pickle.loads(open(label_path, "rb").read().replace(b"label", b"_label"))
+
+
 def detect_real_fake(frame: np.ndarray):
     (h, w) = frame.shape[:2]
-    blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0,
-        (300, 300), (104.0, 177.0, 123.0))
+    blob = cv2.dnn.blobFromImage(
+        cv2.resize(frame, (300, 300)), 1.0, (300, 300), (104.0, 177.0, 123.0)
+    )
 
-    # Phat hien khuon mat
     net.setInput(blob)
     detections = net.forward()
 
-    # Loop qua cac khuon mat
     for i in range(0, detections.shape[2]):
 
         confidence = detections[0, 0, i, 2]
 
-        # Neu conf lon hon threshold
         if confidence > CONFIDENT_THRESHOLD:
 
             box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
@@ -47,34 +48,38 @@ def detect_real_fake(frame: np.ndarray):
             endX = min(w, endX)
             endY = min(h, endY)
 
-            # Lay vung khuon mat
             face = frame[startY:endY, startX:endX]
             face = cv2.resize(face, (32, 32))
             face = face.astype("float") / 255.0
             face = img_to_array(face)
             face = np.expand_dims(face, axis=0)
 
-            # Dua vao model de nhan dien fake/real
-            preds = model.predict(face)[0]
+            preds = model.predict(face, verbose=0)[0]
 
             j = np.argmax(preds)
             label = le.classes_[j]
-            
-            if (j==0):
-                # Neu la fake thi ve mau do
-                cv2.putText(frame, label, (startX, startY - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-                cv2.rectangle(frame, (startX, startY), (endX, endY),
-                    (0, 0, 255), 2)
+
+            if j == 0:
+                cv2.putText(
+                    frame,
+                    label,
+                    (startX, startY - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 0, 255),
+                    2,
+                )
+                cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 0, 255), 2)
             else:
-                # Neu real thi ve mau xanh
-                cv2.putText(frame, label, (startX, startY - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                cv2.rectangle(frame, (startX, startY), (endX, endY),
-                            (0,  255,0), 2)
-                    
-            cv2.imwrite(os.path.sep.join([UPLOAD_FOLDER, f'{int(time.time())}.jpg']), frame)
-            
-            print(label)
+                cv2.putText(
+                    frame,
+                    label,
+                    (startX, startY - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 0),
+                    2,
+                )
+                cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
+
             return label
-        
