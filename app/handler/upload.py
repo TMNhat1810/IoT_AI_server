@@ -2,7 +2,7 @@ from flask import request, jsonify
 from PIL import Image
 import numpy as np
 
-from ..AI import detect_real_fake
+from ..AI import detect
 
 
 def handle_upload():
@@ -14,7 +14,7 @@ def handle_upload():
     try:
         image = Image.open(file.stream).convert("RGB")
 
-        detect_real_fake(np.array(image))
+        detect(np.array(image))
 
         return (
             jsonify(
