@@ -1,41 +1,52 @@
 from ..AI import detect
 from imutils.video import VideoStream
-from ..configs import STREAM_URL, CENTER_SERVER_URL, SERVO_URL
+from ..configs import STREAM_URL, CENTER_SERVER_URL, ESP_URL, RF_DISTANCE_THRESHOLD
 from ..configs.detect import *
 from .. import globals
 import time
 import requests
 import cv2
 import threading
+import numpy as np
+
+label = None
 
 
 def log_fake(buffer):
+    global label
     try:
         files = {"file": ("capture.jpg", buffer, "image/jpeg")}
         requests.post(CENTER_SERVER_URL + "/image/fake", files=files)
     except:
         pass
     time.sleep(10)
+    label = None
     globals._stop_detect = False
 
 
-def log_real(buffer, label):
+def log_real(buffer):
+    global label
     try:
         files = {"file": ("capture.jpg", buffer, "image/jpeg")}
-        requests.post(
-            SERVO_URL,
-            json={"isServo": True},
-        )
+        if label != "unknown":
+            requests.post(
+                ESP_URL,
+                json={"isServo": True},
+            )
         requests.post(
             CENTER_SERVER_URL + "/image/real", files=files, data={"title": label}
         )
     except:
         pass
-    time.sleep(10)
+    time.sleep(2)
+    label = None
+    time.sleep(8)
     globals._stop_detect = False
 
 
 def process():
+    labels = []
+    global label
     while True:
         try:
             vs = VideoStream(STREAM_URL).start()
@@ -55,7 +66,7 @@ def process():
     while True:
         try:
             frame = vs.read()
-            rf_label, rc_label = detect(frame)
+            rf_label, rc_label = detect(frame, draw_label=label)
             _, buffer = cv2.imencode(".jpg", frame)
             globals._frame = buffer.tobytes()
 
@@ -68,6 +79,7 @@ def process():
                 fc += 1
                 nc = 0
             else:
+                labels.append(rc_label)
                 rc += 1
                 nc = 0
 
@@ -76,16 +88,16 @@ def process():
                 fc = 0
                 nc = 0
                 n_fake = 0
+                n_real = 0
             if fc == N_FAKE_FRAME:
                 print("fake")
-                print(rc_label)
                 rc = 0
                 fc = 0
                 nc = 0
                 n_fake += 1
+                n_real = 0
             if rc == N_REAL_FRAME:
                 print("real")
-                print(rc_label)
                 rc = 0
                 fc = 0
                 nc = 0
@@ -95,18 +107,18 @@ def process():
             if n_fake == 3:
                 threading.Thread(target=log_fake, args=(buffer,)).start()
                 n_fake = 0
+                labels = []
                 globals._stop_detect = True
 
             if n_real == 3:
+                unique, counts = np.unique(labels, return_counts=True)
+                label = unique[counts.argmax()]
                 threading.Thread(
                     target=log_real,
-                    args=(
-                        buffer,
-                        rc_label,
-                    ),
+                    args=(buffer,),
                 ).start()
                 n_real = 0
+                labels = []
                 globals._stop_detect = True
         except:
             pass
-    process()

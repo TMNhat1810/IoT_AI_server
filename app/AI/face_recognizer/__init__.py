@@ -2,22 +2,20 @@ import pickle
 import os
 import numpy as np
 from keras_facenet import FaceNet
+from tensorflow.keras.models import load_model
 
 embedder = FaceNet()
 
-faces = ["DucHuy", "Nhat", "NhatHuy", "Quoc", "Toan", "unknown"]
+faces = ["DucHuy", "Nhat", "Quoc", "Toan"]
 
-recognizer = pickle.load(
-    open(
-        os.path.join(
-            os.getcwd(),
-            "app",
-            "AI",
-            "face_recognizer",
-            "model",
-            "svm_model_160x160.pkl",
-        ),
-        "rb",
+recognizer = load_model(
+    os.path.join(
+        os.getcwd(),
+        "app",
+        "AI",
+        "face_recognizer",
+        "model",
+        "FaceNetCNN.h5",
     )
 )
 

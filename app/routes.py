@@ -16,3 +16,8 @@ def video_feed():
         stream_with_context(stream()),
         mimetype="multipart/x-mixed-replace; boundary=frame",
     )
+
+
+@app.route("/distance", methods=["POST"])
+def update_distance():
+    return Handler.handle_distance()
